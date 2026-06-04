@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Voice-First BI Agent — How It Works</title>
+<style>
+  :root {
+    --bg: #f7f8fb;
+    --ink: #1f2937;
+    --muted: #6b7280;
+    --start: #059669;      /* green  - start/end */
+    --start-fill: #d1fae5;
+    --step: #2563eb;       /* blue   - steps */
+    --step-fill: #dbeafe;
+    --decide: #d97706;     /* amber  - decisions */
+    --decide-fill: #fef3c7;
+    --loop: #7c3aed;       /* purple - loop back */
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+    padding: 24px;
+  }
+  header { max-width: 940px; margin: 0 auto 12px; }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  p.sub { margin: 0; color: var(--muted); font-size: 14px; }
+  .legend {
+    max-width: 940px; margin: 12px auto 18px;
+    display: flex; flex-wrap: wrap; gap: 16px;
+    font-size: 13px; color: var(--ink);
+  }
+  .legend .item { display: flex; align-items: center; gap: 8px; }
+  .swatch { width: 22px; height: 16px; border-radius: 4px; border: 2px solid; }
+  .swatch.start { background: var(--start-fill); border-color: var(--start); border-radius: 999px; }
+  .swatch.step { background: var(--step-fill); border-color: var(--step); }
+  .swatch.decide {
+    background: var(--decide-fill); border-color: var(--decide);
+    width: 18px; height: 18px; transform: rotate(45deg); border-radius: 3px;
+  }
+  .swatch.loop { background: #ede9fe; border-color: var(--loop); }
+  .chart-wrap {
+    max-width: 940px; margin: 0 auto;
+    background: #fff; border: 1px solid #e5e7eb; border-radius: 14px;
+    padding: 8px; box-shadow: 0 1px 3px rgba(0,0,0,.06);
+  }
+  svg { width: 100%; height: auto; display: block; }
+
+  /* shape text */
+  .lbl { font-size: 14px; font-weight: 600; fill: var(--ink); }
+  .lbl-sm { font-size: 12px; font-weight: 500; fill: var(--ink); }
+  .lane { font-size: 12px; font-weight: 700; letter-spacing: .04em; fill: var(--muted); }
+  .yn { font-size: 12px; font-weight: 700; }
+  .yn.yes { fill: var(--start); }
+  .yn.no  { fill: #dc2626; }
+
+  /* shapes */
+  .start { fill: var(--start-fill); stroke: var(--start); stroke-width: 2.5; }
+  .step  { fill: var(--step-fill);  stroke: var(--step);  stroke-width: 2.5; }
+  .decide{ fill: var(--decide-fill);stroke: var(--decide);stroke-width: 2.5; }
+
+  /* arrows */
+  .flow { fill: none; stroke: #475569; stroke-width: 2.2; }
+  .loopline { fill: none; stroke: var(--loop); stroke-width: 2.2; stroke-dasharray: 6 5; }
+</style>
+</head>
+<body>
+  <header>
+    <h1>Voice-First BI Agent — How It Works</h1>
+    <p class="sub">Read top to bottom. The owner talks; the agent talks back and shows results.</p>
+  </header>
+
+  <div class="legend">
+    <div class="item"><span class="swatch start"></span> Start / End</div>
+    <div class="item"><span class="swatch step"></span> A step</div>
+    <div class="item"><span class="swatch decide"></span> A yes/no decision</div>
+    <div class="item"><span class="swatch loop"></span> Loop back to listening</div>
+  </div>
+
+  <div class="chart-wrap">
+    <svg viewBox="0 0 940 1330" role="img" aria-label="Flowchart of the voice-first BI agent">
+      <defs>
+        <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="#475569" />
+        </marker>
+        <marker id="arrowLoop" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="#7c3aed" />
+        </marker>
+      </defs>
+
+      <!-- ============ FLOW LINES (drawn first, under shapes) ============ -->
+      <!-- start -> two lanes -->
+      <path class="flow" d="M330,104 C330,128 170,120 170,150" marker-end="url(#arrow)" />
+      <path class="flow" d="M330,104 C330,128 490,120 490,150" marker-end="url(#arrow)" />
+      <!-- lanes -> listen -->
+      <path class="flow" d="M170,206 C170,232 290,210 300,222" marker-end="url(#arrow)" />
+      <path class="flow" d="M490,206 C490,232 370,210 360,222" marker-end="url(#arrow)" />
+      <!-- listen -> diamond1 -->
+      <path class="flow" d="M330,278 L330,316" marker-end="url(#arrow)" />
+      <!-- diamond1 No -> talks back -->
+      <path class="flow" d="M440,360 L620,360" marker-end="url(#arrow)" />
+      <!-- diamond1 Yes -> preamble -->
+      <path class="flow" d="M330,404 L330,440" marker-end="url(#arrow)" />
+      <!-- preamble -> lookup -->
+      <path class="flow" d="M330,496 L330,556" marker-end="url(#arrow)" />
+      <!-- lookup -> diamond2 -->
+      <path class="flow" d="M330,620 L330,652" marker-end="url(#arrow)" />
+      <!-- diamond2 No -> error -->
+      <path class="flow" d="M445,700 L620,700" marker-end="url(#arrow)" />
+      <!-- diamond2 Yes -> speak -->
+      <path class="flow" d="M330,748 L330,784" marker-end="url(#arrow)" />
+      <!-- speak -> ui split -->
+      <path class="flow" d="M330,840 C330,868 180,860 180,896" marker-end="url(#arrow)" />
+      <path class="flow" d="M330,840 C330,868 500,860 500,896" marker-end="url(#arrow)" />
+      <!-- ui -> anything else -->
+      <path class="flow" d="M180,960 C180,986 300,978 312,1008" marker-end="url(#arrow)" />
+      <path class="flow" d="M500,960 C500,986 360,978 348,1008" marker-end="url(#arrow)" />
+      <!-- anything else No -> save -->
+      <path class="flow" d="M330,1088 L330,1124" marker-end="url(#arrow)" />
+      <!-- save -> end -->
+      <path class="flow" d="M330,1180 L330,1206" marker-end="url(#arrow)" />
+
+      <!-- ============ LOOP-BACK LINES (purple, return bus on the right) ============ -->
+      <!-- talks back -> bus -->
+      <path class="loopline" d="M820,360 L880,360" />
+      <!-- error -> bus -->
+      <path class="loopline" d="M820,700 L880,700" />
+      <!-- anything else Yes -> bus -->
+      <path class="loopline" d="M445,1040 L880,1040" />
+      <!-- vertical return bus -->
+      <path class="loopline" d="M880,360 L880,1040" />
+      <!-- bus top -> back into listen -->
+      <path class="loopline" d="M880,360 L880,250 L450,250" marker-end="url(#arrowLoop)" />
+
+      <!-- ============ SHAPES ============ -->
+      <!-- start -->
+      <ellipse class="start" cx="330" cy="70" rx="170" ry="34" />
+      <text class="lbl" x="330" y="75" text-anchor="middle">Owner Starts Talking to the Agent</text>
+
+      <!-- entry lanes -->
+      <text class="lane" x="170" y="142" text-anchor="middle">WEB</text>
+      <rect class="step" x="70" y="150" width="200" height="56" rx="10" />
+      <text class="lbl-sm" x="170" y="183" text-anchor="middle">Open Voice Session in App</text>
+
+      <text class="lane" x="490" y="142" text-anchor="middle">WHATSAPP</text>
+      <rect class="step" x="390" y="150" width="200" height="56" rx="10" />
+      <text class="lbl-sm" x="490" y="183" text-anchor="middle">Send a Voice Note</text>
+
+      <!-- listen -->
+      <rect class="step" x="210" y="222" width="240" height="56" rx="10" />
+      <text class="lbl-sm" x="330" y="246" text-anchor="middle">Agent Listens &amp; Understands</text>
+      <text class="lbl-sm" x="330" y="264" text-anchor="middle" fill="#6b7280">(GPT-Realtime-2)</text>
+
+      <!-- diamond 1 -->
+      <polygon class="decide" points="330,316 440,360 330,404 220,360" />
+      <text class="lbl-sm" x="330" y="356" text-anchor="middle">Is this a</text>
+      <text class="lbl-sm" x="330" y="372" text-anchor="middle">data question?</text>
+      <text class="yn no" x="470" y="352" text-anchor="middle">No</text>
+      <text class="yn yes" x="348" y="424" text-anchor="start">Yes</text>
+
+      <!-- talks back -->
+      <rect class="step" x="620" y="332" width="200" height="56" rx="10" />
+      <text class="lbl-sm" x="720" y="365" text-anchor="middle">Agent Just Talks Back</text>
+
+      <!-- preamble -->
+      <rect class="step" x="210" y="440" width="240" height="56" rx="10" />
+      <text class="lbl-sm" x="330" y="473" text-anchor="middle">Agent Says &#8220;Let Me Check&#8230;&#8221;</text>
+
+      <!-- lookup -->
+      <rect class="step" x="210" y="556" width="240" height="64" rx="10" />
+      <text class="lbl-sm" x="330" y="584" text-anchor="middle">Look Up the Business Data</text>
+      <text class="lbl-sm" x="330" y="602" text-anchor="middle" fill="#6b7280">(Claude + json-render)</text>
+
+      <!-- diamond 2 -->
+      <polygon class="decide" points="330,652 445,700 330,748 215,700" />
+      <text class="lbl-sm" x="330" y="696" text-anchor="middle">Is the answer</text>
+      <text class="lbl-sm" x="330" y="712" text-anchor="middle">valid?</text>
+      <text class="yn no" x="475" y="692" text-anchor="middle">No</text>
+      <text class="yn yes" x="348" y="770" text-anchor="start">Yes</text>
+
+      <!-- error -->
+      <rect class="step" x="620" y="672" width="200" height="56" rx="10" />
+      <text class="lbl-sm" x="720" y="697" text-anchor="middle">Friendly Error,</text>
+      <text class="lbl-sm" x="720" y="714" text-anchor="middle">Agent Asks to Retry</text>
+
+      <!-- speak -->
+      <rect class="step" x="210" y="784" width="240" height="56" rx="10" />
+      <text class="lbl-sm" x="330" y="817" text-anchor="middle">Agent Speaks the Answer Out Loud</text>
+
+      <!-- ui split -->
+      <rect class="step" x="70" y="896" width="220" height="64" rx="10" />
+      <text class="lbl-sm" x="180" y="924" text-anchor="middle">Screen here?</text>
+      <text class="lbl-sm" x="180" y="942" text-anchor="middle">Show Interactive UI</text>
+
+      <rect class="step" x="390" y="896" width="220" height="64" rx="10" />
+      <text class="lbl-sm" x="500" y="924" text-anchor="middle">No screen?</text>
+      <text class="lbl-sm" x="500" y="942" text-anchor="middle">Send Image Card + Link</text>
+
+      <!-- anything else -->
+      <polygon class="decide" points="330,1008 445,1040 330,1072 215,1040" />
+      <text class="lbl-sm" x="330" y="1044" text-anchor="middle">Anything else?</text>
+      <text class="yn yes" x="470" y="1032" text-anchor="middle">Yes</text>
+      <text class="yn no" x="345" y="1108" text-anchor="start">No</text>
+
+      <!-- save -->
+      <rect class="step" x="210" y="1124" width="240" height="56" rx="10" />
+      <text class="lbl-sm" x="330" y="1157" text-anchor="middle">Save Conversation Transcript</text>
+
+      <!-- end -->
+      <ellipse class="start" cx="330" cy="1240" rx="180" ry="34" />
+      <text class="lbl" x="330" y="1245" text-anchor="middle">Owner Got Their Answers — Hands-Free</text>
+
+      <!-- loop note -->
+      <text class="lbl-sm" x="884" y="240" text-anchor="end" fill="#7c3aed">loop back to listening</text>
+    </svg>
+  </div>
+</body>
+</html>
