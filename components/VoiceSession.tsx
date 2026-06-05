@@ -8,8 +8,8 @@ import {
   type RealtimeItem,
 } from "@openai/agents/realtime";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { z } from "zod";
 
+import { answerBusinessQueryInputSchema } from "@/lib/realtime/answer-business-query-stub";
 import {
   REALTIME_AGENT_INSTRUCTIONS,
   REALTIME_MODEL,
@@ -139,9 +139,7 @@ export function VoiceSession() {
         name: "answer_business_query",
         description:
           "Use this for questions about the owner's business data, including sales, inventory, customers, invoices, revenue, stock, orders, cash, or costs. Say a short preamble before calling it.",
-        parameters: z.object({
-          query: z.string().min(1),
-        }),
+        parameters: answerBusinessQueryInputSchema,
         execute: async ({ query }) => {
           const output = await executeAnswerBusinessQuery(query);
           setToolCalls((current) => [
