@@ -356,7 +356,7 @@ tests green, and the core voice -> answer -> UI -> transcript loop works end-to-
 
 | Milestone | Codex PR | Claude approved | Amp signed off | Date |
 |-----------|----------|-----------------|----------------|------|
-| M0 Setup & Catalog | | | | |
+| M0 Setup & Catalog | #1 | ✅ | ✅ | 2026-06-05 |
 | M1 Voice Loop | | | | |
 | M2 Data Normalization | | | | |
 | M3 The Brain | | | | |
