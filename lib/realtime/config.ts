@@ -1,5 +1,12 @@
 export const REALTIME_MODEL = "gpt-realtime-2";
 export const REALTIME_VOICE = "marin";
+const REALTIME_TURN_DETECTION = {
+  type: "server_vad",
+  createResponse: true,
+  interruptResponse: true,
+  prefixPaddingMs: 300,
+  silenceDurationMs: 500,
+} as const;
 
 export const REALTIME_AGENT_INSTRUCTIONS = [
   "You are voice-bi, a concise business assistant for micro-business owners.",
@@ -16,12 +23,27 @@ export const REALTIME_SESSION_CONFIG = {
   },
   audio: {
     input: {
-      turnDetection: {
-        type: "server_vad",
-        createResponse: true,
-        interruptResponse: true,
-        prefixPaddingMs: 300,
-        silenceDurationMs: 500,
+      turnDetection: REALTIME_TURN_DETECTION,
+    },
+    output: {
+      voice: REALTIME_VOICE,
+    },
+  },
+};
+
+export const REALTIME_REST_SESSION_CONFIG = {
+  output_modalities: ["audio"] as const,
+  reasoning: {
+    effort: "low" as const,
+  },
+  audio: {
+    input: {
+      turn_detection: {
+        type: REALTIME_TURN_DETECTION.type,
+        create_response: REALTIME_TURN_DETECTION.createResponse,
+        interrupt_response: REALTIME_TURN_DETECTION.interruptResponse,
+        prefix_padding_ms: REALTIME_TURN_DETECTION.prefixPaddingMs,
+        silence_duration_ms: REALTIME_TURN_DETECTION.silenceDurationMs,
       },
     },
     output: {

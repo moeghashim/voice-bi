@@ -42,7 +42,8 @@ describe("/api/realtime/session", () => {
       session: {
         model: string;
         reasoning: { effort: string };
-        audio: { input: { turnDetection: { type: string } } };
+        output_modalities: string[];
+        audio: { input: { turn_detection: { type: string } } };
       };
     };
 
@@ -53,10 +54,13 @@ describe("/api/realtime/session", () => {
     });
     expect(requestBody.expires_after.seconds).toBeLessThanOrEqual(600);
     expect(requestBody.session.model).toBe("gpt-realtime-2");
+    expect(requestBody.session.output_modalities).toEqual(["audio"]);
     expect(requestBody.session.reasoning.effort).toBe("low");
-    expect(requestBody.session.audio.input.turnDetection.type).toBe(
+    expect(requestBody.session.audio.input.turn_detection.type).toBe(
       "server_vad",
     );
+    expect(JSON.stringify(requestBody)).not.toContain("outputModalities");
+    expect(JSON.stringify(requestBody)).not.toContain("turnDetection");
     expect(JSON.stringify(responseBody)).not.toContain(apiKey);
     expect(responseBody).toEqual({
       client_secret: {

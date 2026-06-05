@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import {
   REALTIME_CLIENT_SECRET_TTL_SECONDS,
   REALTIME_MODEL,
-  REALTIME_SESSION_CONFIG,
+  REALTIME_REST_SESSION_CONFIG,
 } from "@/lib/realtime/config";
 
 export const runtime = "nodejs";
@@ -42,7 +42,7 @@ export async function POST() {
         session: {
           type: "realtime",
           model: REALTIME_MODEL,
-          ...REALTIME_SESSION_CONFIG,
+          ...REALTIME_REST_SESSION_CONFIG,
         },
       }),
     },
