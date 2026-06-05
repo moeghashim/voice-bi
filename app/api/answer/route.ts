@@ -4,6 +4,7 @@ import {
   answerBusinessQueryInputSchema,
   answerBusinessQueryStub,
 } from "@/lib/realtime/answer-business-query-stub";
+import { getNormalizedDataForSession } from "@/lib/data/session-store";
 
 export async function POST(request: Request) {
   const body = await request.json().catch(() => null);
@@ -16,5 +17,13 @@ export async function POST(request: Request) {
     );
   }
 
-  return NextResponse.json(answerBusinessQueryStub(parsed.data));
+  const dataSessionId =
+    body && typeof body.data_session_id === "string"
+      ? body.data_session_id
+      : null;
+  const normalizedData = getNormalizedDataForSession(dataSessionId);
+
+  return NextResponse.json(
+    answerBusinessQueryStub(parsed.data, normalizedData),
+  );
 }

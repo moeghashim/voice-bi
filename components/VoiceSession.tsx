@@ -46,6 +46,10 @@ type AnswerBusinessQueryResponse = {
   spec_id: null;
 };
 
+type VoiceSessionProps = {
+  dataSessionId: string | null;
+};
+
 const statusText: Record<ConnectionStatus, string> = {
   idle: "Disconnected",
   connecting: "Connecting",
@@ -69,13 +73,17 @@ async function fetchRealtimeClientSecret(): Promise<RealtimeSessionResponse> {
 
 async function executeAnswerBusinessQuery(
   query: string,
+  dataSessionId: string | null,
 ): Promise<AnswerBusinessQueryResponse> {
   const response = await fetch("/api/answer", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ query }),
+    body: JSON.stringify({
+      query,
+      ...(dataSessionId ? { data_session_id: dataSessionId } : {}),
+    }),
   });
 
   if (!response.ok) {
@@ -101,8 +109,9 @@ function parseToolQuery(rawArguments: string | undefined): string {
   }
 }
 
-export function VoiceSession() {
+export function VoiceSession({ dataSessionId }: VoiceSessionProps) {
   const sessionRef = useRef<RealtimeSession | null>(null);
+  const dataSessionIdRef = useRef<string | null>(dataSessionId);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [status, setStatus] = useState<ConnectionStatus>("idle");
   const [isMuted, setIsMuted] = useState(false);
@@ -123,6 +132,9 @@ export function VoiceSession() {
   }, []);
 
   useEffect(() => disconnect, [disconnect]);
+  useEffect(() => {
+    dataSessionIdRef.current = dataSessionId;
+  }, [dataSessionId]);
 
   const connect = useCallback(async () => {
     if (status === "connecting" || status === "connected") {
@@ -141,7 +153,10 @@ export function VoiceSession() {
           "Use this for questions about the owner's business data, including sales, inventory, customers, invoices, revenue, stock, orders, cash, or costs. Say a short preamble before calling it.",
         parameters: answerBusinessQueryInputSchema,
         execute: async ({ query }) => {
-          const output = await executeAnswerBusinessQuery(query);
+          const output = await executeAnswerBusinessQuery(
+            query,
+            dataSessionIdRef.current,
+          );
           setToolCalls((current) => [
             {
               id: crypto.randomUUID(),

@@ -358,7 +358,7 @@ tests green, and the core voice -> answer -> UI -> transcript loop works end-to-
 |-----------|----------|-----------------|----------------|------|
 | M0 Setup & Catalog | #1 | ✅ | ✅ | 2026-06-05 |
 | M1 Voice Loop | #2 | ✅ | ✅ | 2026-06-05 |
-| M2 Data Normalization | | | | |
+| M2 Data Normalization | #3 | ✅ | ✅ | 2026-06-05 |
 | M3 The Brain | | | | |
 | M4 On-screen UI | | | | |
 | M5 No-screen + Transcript | | | | |
