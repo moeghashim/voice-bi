@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
 
-import {
-  answerBusinessQueryInputSchema,
-  answerBusinessQueryStub,
-} from "@/lib/realtime/answer-business-query-stub";
+import { answerBusinessQuery } from "@/lib/brain/answer-business-query";
 import { getNormalizedDataForSession } from "@/lib/data/session-store";
+import { answerBusinessQueryInputSchema } from "@/lib/realtime/answer-business-query-contract";
+
+export const runtime = "nodejs";
 
 export async function POST(request: Request) {
   const body = await request.json().catch(() => null);
@@ -24,6 +24,6 @@ export async function POST(request: Request) {
   const normalizedData = getNormalizedDataForSession(dataSessionId);
 
   return NextResponse.json(
-    answerBusinessQueryStub(parsed.data, normalizedData),
+    await answerBusinessQuery(parsed.data, normalizedData),
   );
 }

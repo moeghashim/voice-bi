@@ -46,85 +46,90 @@ const insightPropsSchema = z
   })
   .strict();
 
-export const businessCatalog = defineCatalog(reactSchema, {
-  components: {
-    Dashboard: {
-      props: dashboardPropsSchema,
-      slots: ["default"],
-      description:
-        "Root dashboard container for a concise business answer. Use children for metrics, charts, tables, and insights.",
-    },
-    Metric: {
-      props: metricPropsSchema,
-      description:
-        "Single business KPI with optional delta and sentiment. Values must come from the provided data or simple derivations.",
-    },
-    Table: {
-      props: tablePropsSchema,
-      description:
-        "Compact table for comparing rows from the owner data. Keep row counts small and relevant.",
-    },
-    BarChart: {
-      props: chartPropsSchema,
-      description:
-        "Bar chart for category comparisons. xKey and yKey must match fields in each data object.",
-    },
-    LineChart: {
-      props: chartPropsSchema,
-      description:
-        "Line chart for trend data. xKey and yKey must match fields in each data object.",
-    },
-    Insight: {
-      props: insightPropsSchema,
-      description:
-        "Brief insight or recommendation. Use critical only for urgent business risks supported by the data.",
-    },
+export const businessComponentPropSchemas = {
+  Dashboard: dashboardPropsSchema,
+  Metric: metricPropsSchema,
+  Table: tablePropsSchema,
+  BarChart: chartPropsSchema,
+  LineChart: chartPropsSchema,
+  Insight: insightPropsSchema,
+};
+
+const businessComponentDefinitions = {
+  Dashboard: {
+    props: businessComponentPropSchemas.Dashboard,
+    slots: ["default"],
+    description:
+      "Root dashboard container for a concise business answer. Use children for metrics, charts, tables, and insights.",
   },
+  Metric: {
+    props: businessComponentPropSchemas.Metric,
+    description:
+      "Single business KPI with optional delta and sentiment. Values must come from the provided data or simple derivations.",
+  },
+  Table: {
+    props: businessComponentPropSchemas.Table,
+    description:
+      "Compact table for comparing rows from the owner data. Keep row counts small and relevant.",
+  },
+  BarChart: {
+    props: businessComponentPropSchemas.BarChart,
+    description:
+      "Bar chart for category comparisons. xKey and yKey must match fields in each data object.",
+  },
+  LineChart: {
+    props: businessComponentPropSchemas.LineChart,
+    description:
+      "Line chart for trend data. xKey and yKey must match fields in each data object.",
+  },
+  Insight: {
+    props: businessComponentPropSchemas.Insight,
+    description:
+      "Brief insight or recommendation. Use critical only for urgent business risks supported by the data.",
+  },
+};
+
+export const businessCatalog = defineCatalog(reactSchema, {
+  components: businessComponentDefinitions,
   actions: {},
 });
 
-const visibilitySchema = z.union([
-  z.boolean(),
-  z.record(z.string(), z.unknown()),
-  z.array(z.unknown()),
-]);
-
 const elementBaseSchema = z.object({
   children: z.array(z.string()),
-  visible: visibilitySchema,
+  visible: z.boolean(),
 });
 
-const businessUiElementSchema = z.discriminatedUnion("type", [
+export const businessCatalogElementSchema = z.discriminatedUnion("type", [
   elementBaseSchema.extend({
     type: z.literal("Dashboard"),
-    props: dashboardPropsSchema,
+    props: businessComponentPropSchemas.Dashboard,
   }),
   elementBaseSchema.extend({
     type: z.literal("Metric"),
-    props: metricPropsSchema,
+    props: businessComponentPropSchemas.Metric,
   }),
   elementBaseSchema.extend({
     type: z.literal("Table"),
-    props: tablePropsSchema,
+    props: businessComponentPropSchemas.Table,
   }),
   elementBaseSchema.extend({
     type: z.literal("BarChart"),
-    props: chartPropsSchema,
+    props: businessComponentPropSchemas.BarChart,
   }),
   elementBaseSchema.extend({
     type: z.literal("LineChart"),
-    props: chartPropsSchema,
+    props: businessComponentPropSchemas.LineChart,
   }),
   elementBaseSchema.extend({
     type: z.literal("Insight"),
-    props: insightPropsSchema,
+    props: businessComponentPropSchemas.Insight,
   }),
 ]);
 
-export const businessCatalogSchema = z
+const businessCatalogStructureSchema = z
   .object({
     root: z.string(),
-    elements: z.record(z.string(), businessUiElementSchema),
+    elements: z.record(z.string(), businessCatalogElementSchema),
   })
   .strict()
   .superRefine((spec, ctx) => {
@@ -149,7 +154,11 @@ export const businessCatalogSchema = z
     }
   });
 
-export type BusinessUiSpec = z.infer<typeof businessCatalogSchema>;
+export const businessCatalogSchema = businessCatalog
+  .zodSchema()
+  .pipe(businessCatalogStructureSchema);
+
+export type BusinessUiSpec = z.infer<typeof businessCatalogStructureSchema>;
 
 export const businessCatalogPrompt = businessCatalog.prompt({
   system:
