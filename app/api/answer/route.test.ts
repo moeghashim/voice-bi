@@ -55,6 +55,7 @@ describe("/api/answer", () => {
         body: JSON.stringify({
           query: "What were sales last month?",
           data_session_id: "answer-route-session",
+          session_id: "voice-route-session",
         }),
       }),
     );
@@ -69,6 +70,7 @@ describe("/api/answer", () => {
     expect(mockedAnswerBusinessQuery).toHaveBeenCalledWith(
       { query: "What were sales last month?" },
       normalizedData,
+      { sessionId: "voice-route-session" },
     );
   });
 });

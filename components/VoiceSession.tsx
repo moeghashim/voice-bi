@@ -26,6 +26,13 @@ type ConnectionStatus =
   | "connected"
   | "disconnecting"
   | "error";
+type TranscriptStatus =
+  | "idle"
+  | "recording"
+  | "uploading"
+  | "stored"
+  | "unsupported"
+  | "error";
 
 type ToolCallLog = {
   id: string;
@@ -43,6 +50,11 @@ type RealtimeSessionResponse = {
   model: string;
 };
 
+type TranscriptResponse = {
+  text: string;
+  spec_ids: string[];
+};
+
 type VoiceSessionProps = {
   dataSessionId: string | null;
   onBusinessAnswer: (output: AnswerBusinessQueryOutput) => void;
@@ -54,6 +66,15 @@ const statusText: Record<ConnectionStatus, string> = {
   connected: "Connected",
   disconnecting: "Disconnecting",
   error: "Connection error",
+};
+
+const transcriptStatusText: Record<TranscriptStatus, string> = {
+  idle: "Transcript idle",
+  recording: "Recording transcript audio",
+  uploading: "Storing transcript",
+  stored: "Transcript stored",
+  unsupported: "Transcript recording unsupported",
+  error: "Transcript unavailable",
 };
 
 async function fetchRealtimeClientSecret(): Promise<RealtimeSessionResponse> {
@@ -72,6 +93,7 @@ async function fetchRealtimeClientSecret(): Promise<RealtimeSessionResponse> {
 async function executeAnswerBusinessQuery(
   query: string,
   dataSessionId: string | null,
+  voiceSessionId: string | null,
 ): Promise<AnswerBusinessQueryOutput> {
   const response = await fetch("/api/answer", {
     method: "POST",
@@ -81,6 +103,7 @@ async function executeAnswerBusinessQuery(
     body: JSON.stringify({
       query,
       ...(dataSessionId ? { data_session_id: dataSessionId } : {}),
+      ...(voiceSessionId ? { session_id: voiceSessionId } : {}),
     }),
   });
 
@@ -113,8 +136,16 @@ export function VoiceSession({
 }: VoiceSessionProps) {
   const sessionRef = useRef<RealtimeSession | null>(null);
   const dataSessionIdRef = useRef<string | null>(dataSessionId);
+  const voiceSessionIdRef = useRef<string | null>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const transcriptChunksRef = useRef<Blob[]>([]);
+  const transcriptStreamRef = useRef<MediaStream | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [status, setStatus] = useState<ConnectionStatus>("idle");
+  const [transcriptStatus, setTranscriptStatus] =
+    useState<TranscriptStatus>("idle");
+  const [transcriptText, setTranscriptText] = useState<string | null>(null);
+  const [transcriptSpecIds, setTranscriptSpecIds] = useState<string[]>([]);
   const [isMuted, setIsMuted] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [isTestingTool, setIsTestingTool] = useState(false);
@@ -122,16 +153,125 @@ export function VoiceSession({
   const [toolCalls, setToolCalls] = useState<ToolCallLog[]>([]);
   const [error, setError] = useState<string | null>(null);
 
+  const cleanupTranscriptStream = useCallback(() => {
+    transcriptStreamRef.current?.getTracks().forEach((track) => track.stop());
+    transcriptStreamRef.current = null;
+    mediaRecorderRef.current = null;
+  }, []);
+
+  const uploadTranscript = useCallback(async (sessionId: string, audio: Blob) => {
+    setTranscriptStatus("uploading");
+
+    try {
+      const formData = new FormData();
+      formData.append("session_id", sessionId);
+      formData.append("audio", audio, "voice-bi-session.webm");
+
+      const response = await fetch("/api/transcript", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error("Unable to store the session transcript.");
+      }
+
+      const transcript = (await response.json()) as TranscriptResponse;
+      setTranscriptText(transcript.text);
+      setTranscriptSpecIds(transcript.spec_ids);
+      setTranscriptStatus("stored");
+    } catch (transcriptError) {
+      setTranscriptStatus("error");
+      setError(
+        transcriptError instanceof Error
+          ? transcriptError.message
+          : "Unable to store the session transcript.",
+      );
+    }
+  }, []);
+
+  const startTranscriptRecording = useCallback(
+    async (sessionId: string) => {
+      setTranscriptText(null);
+      setTranscriptSpecIds([]);
+
+      if (
+        typeof navigator === "undefined" ||
+        !navigator.mediaDevices?.getUserMedia ||
+        typeof MediaRecorder === "undefined"
+      ) {
+        setTranscriptStatus("unsupported");
+        return;
+      }
+
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          audio: true,
+        });
+        const recorder = new MediaRecorder(stream);
+
+        transcriptChunksRef.current = [];
+        transcriptStreamRef.current = stream;
+        mediaRecorderRef.current = recorder;
+
+        recorder.ondataavailable = (event) => {
+          if (event.data.size > 0) {
+            transcriptChunksRef.current.push(event.data);
+          }
+        };
+
+        recorder.onstop = () => {
+          const chunks = transcriptChunksRef.current;
+          transcriptChunksRef.current = [];
+          cleanupTranscriptStream();
+
+          if (chunks.length === 0) {
+            setTranscriptStatus("idle");
+            return;
+          }
+
+          void uploadTranscript(
+            sessionId,
+            new Blob(chunks, {
+              type: recorder.mimeType || "audio/webm",
+            }),
+          );
+        };
+
+        recorder.start();
+        setTranscriptStatus("recording");
+      } catch {
+        cleanupTranscriptStream();
+        setTranscriptStatus("error");
+        setError("Mic recording is unavailable, so no transcript was stored.");
+      }
+    },
+    [cleanupTranscriptStream, uploadTranscript],
+  );
+
+  const stopTranscriptRecording = useCallback(() => {
+    const recorder = mediaRecorderRef.current;
+
+    if (recorder && recorder.state !== "inactive") {
+      recorder.stop();
+      return;
+    }
+
+    cleanupTranscriptStream();
+  }, [cleanupTranscriptStream]);
+
   const disconnect = useCallback(() => {
     setStatus((current) =>
       current === "idle" ? current : "disconnecting",
     );
     sessionRef.current?.close();
     sessionRef.current = null;
+    stopTranscriptRecording();
+    voiceSessionIdRef.current = null;
     setIsMuted(false);
     setIsSpeaking(false);
     setStatus("idle");
-  }, []);
+  }, [stopTranscriptRecording]);
 
   useEffect(() => disconnect, [disconnect]);
   useEffect(() => {
@@ -147,7 +287,12 @@ export function VoiceSession({
     setStatus("connecting");
 
     try {
-      const { client_secret: clientSecret } = await fetchRealtimeClientSecret();
+      const {
+        client_secret: clientSecret,
+        session_id: voiceSessionId,
+      } = await fetchRealtimeClientSecret();
+      voiceSessionIdRef.current = voiceSessionId ?? crypto.randomUUID();
+      await startTranscriptRecording(voiceSessionIdRef.current);
 
       const answerBusinessQuery = tool({
         name: "answer_business_query",
@@ -158,6 +303,7 @@ export function VoiceSession({
           const output = await executeAnswerBusinessQuery(
             query,
             dataSessionIdRef.current,
+            voiceSessionIdRef.current,
           );
           onBusinessAnswer(output);
           setToolCalls((current) => [
@@ -223,6 +369,8 @@ export function VoiceSession({
     } catch (connectError) {
       sessionRef.current?.close();
       sessionRef.current = null;
+      stopTranscriptRecording();
+      voiceSessionIdRef.current = null;
       setError(
         connectError instanceof Error
           ? connectError.message
@@ -230,7 +378,12 @@ export function VoiceSession({
       );
       setStatus("error");
     }
-  }, [onBusinessAnswer, status]);
+  }, [
+    onBusinessAnswer,
+    startTranscriptRecording,
+    status,
+    stopTranscriptRecording,
+  ]);
 
   const toggleMute = useCallback(() => {
     const nextMuted = !isMuted;
@@ -266,6 +419,7 @@ export function VoiceSession({
       const output = await executeAnswerBusinessQuery(
         query,
         dataSessionIdRef.current,
+        voiceSessionIdRef.current ?? dataSessionIdRef.current,
       );
       onBusinessAnswer(output);
       setToolCalls((current) => [
@@ -362,6 +516,21 @@ export function VoiceSession({
           </p>
         ) : null}
 
+        {transcriptStatus !== "idle" ? (
+          <div className="mt-4 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
+            <p className="font-medium">
+              {transcriptStatusText[transcriptStatus]}
+            </p>
+            {transcriptText ? (
+              <p className="mt-1 leading-6">
+                {transcriptText}
+                {transcriptSpecIds.length > 0
+                  ? ` Linked specs: ${transcriptSpecIds.join(", ")}`
+                  : ""}
+              </p>
+            ) : null}
+          </div>
+        ) : null}
       </div>
 
       <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">

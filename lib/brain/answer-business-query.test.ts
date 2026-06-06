@@ -13,6 +13,7 @@ import {
 } from "./answer-business-query";
 import {
   clearBusinessUiSpecStoreForTest,
+  getBusinessUiSpecIdsForSession,
   getBusinessUiSpec,
 } from "./spec-store";
 
@@ -171,6 +172,7 @@ describe("answerBusinessQuery", () => {
       {
         generateObject,
         idFactory: () => "spec-valid",
+        sessionId: "voice-session",
       },
     );
 
@@ -182,6 +184,9 @@ describe("answerBusinessQuery", () => {
     });
     expect(businessCatalogSchema.safeParse(output.ui_spec).success).toBe(true);
     expect(getBusinessUiSpec("spec-valid")).toEqual(validUiSpec);
+    expect(getBusinessUiSpecIdsForSession("voice-session")).toEqual([
+      "spec-valid",
+    ]);
   });
 
   it("accepts and persists a chart-bearing model output", async () => {
