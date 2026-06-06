@@ -9,7 +9,10 @@ import {
 } from "@openai/agents/realtime";
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { answerBusinessQueryInputSchema } from "@/lib/realtime/answer-business-query-stub";
+import {
+  answerBusinessQueryInputSchema,
+  type AnswerBusinessQueryOutput,
+} from "@/lib/realtime/answer-business-query-contract";
 import {
   REALTIME_AGENT_INSTRUCTIONS,
   REALTIME_MODEL,
@@ -40,12 +43,6 @@ type RealtimeSessionResponse = {
   model: string;
 };
 
-type AnswerBusinessQueryResponse = {
-  spoken_summary: string;
-  ui_spec: null;
-  spec_id: null;
-};
-
 type VoiceSessionProps = {
   dataSessionId: string | null;
 };
@@ -74,7 +71,7 @@ async function fetchRealtimeClientSecret(): Promise<RealtimeSessionResponse> {
 async function executeAnswerBusinessQuery(
   query: string,
   dataSessionId: string | null,
-): Promise<AnswerBusinessQueryResponse> {
+): Promise<AnswerBusinessQueryOutput> {
   const response = await fetch("/api/answer", {
     method: "POST",
     headers: {
@@ -90,7 +87,7 @@ async function executeAnswerBusinessQuery(
     throw new Error("The business query tool failed.");
   }
 
-  return (await response.json()) as AnswerBusinessQueryResponse;
+  return (await response.json()) as AnswerBusinessQueryOutput;
 }
 
 function parseToolQuery(rawArguments: string | undefined): string {
