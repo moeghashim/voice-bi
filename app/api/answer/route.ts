@@ -21,9 +21,13 @@ export async function POST(request: Request) {
     body && typeof body.data_session_id === "string"
       ? body.data_session_id
       : null;
+  const voiceSessionId =
+    body && typeof body.session_id === "string" ? body.session_id : null;
   const normalizedData = getNormalizedDataForSession(dataSessionId);
 
   return NextResponse.json(
-    await answerBusinessQuery(parsed.data, normalizedData),
+    await answerBusinessQuery(parsed.data, normalizedData, {
+      sessionId: voiceSessionId,
+    }),
   );
 }

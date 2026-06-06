@@ -157,6 +157,7 @@ type AnswerBusinessQueryOptions = {
   generateObject?: GenerateBusinessObject;
   idFactory?: () => string;
   model?: LanguageModel;
+  sessionId?: string | null;
 };
 
 type RepairPromptInput = {
@@ -221,6 +222,7 @@ export async function answerBusinessQuery(
   if (!normalizedData) {
     return persistAnswer({
       specId: idFactory(),
+      sessionId: options.sessionId,
       spokenSummary:
         "Sorry, I need a loaded business table before I can answer that data question.",
       uiSpec: createFallbackInsightSpec(
@@ -244,6 +246,7 @@ export async function answerBusinessQuery(
   if (firstValidation.success) {
     return persistAnswer({
       specId: idFactory(),
+      sessionId: options.sessionId,
       spokenSummary: firstResponse.spoken_summary,
       uiSpec: firstValidation.data,
     });
@@ -264,6 +267,7 @@ export async function answerBusinessQuery(
   if (repairValidation.success) {
     return persistAnswer({
       specId: idFactory(),
+      sessionId: options.sessionId,
       spokenSummary: repairResponse.spoken_summary,
       uiSpec: repairValidation.data,
     });
@@ -271,6 +275,7 @@ export async function answerBusinessQuery(
 
   return persistAnswer({
     specId: idFactory(),
+    sessionId: options.sessionId,
     spokenSummary:
       "Sorry, I could not produce a safe visual answer for that data question.",
     uiSpec: createFallbackInsightSpec(
@@ -343,14 +348,16 @@ function validateUiSpec(uiSpec: unknown):
 
 function persistAnswer({
   specId,
+  sessionId,
   spokenSummary,
   uiSpec,
 }: {
   specId: string;
+  sessionId?: string | null;
   spokenSummary: string;
   uiSpec: BusinessUiSpec;
 }): AnswerBusinessQueryOutput {
-  setBusinessUiSpec(specId, uiSpec);
+  setBusinessUiSpec(specId, uiSpec, { sessionId });
 
   return {
     spoken_summary: spokenSummary,
