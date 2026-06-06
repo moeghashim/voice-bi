@@ -361,7 +361,7 @@ tests green, and the core voice -> answer -> UI -> transcript loop works end-to-
 | M2 Data Normalization | #3 | ✅ | ✅ | 2026-06-05 |
 | M3 The Brain | #4 | ✅ | ✅ (retroactive) | 2026-06-06 |
 | M4 On-screen UI | #5 | ✅ | ✅ (ratified by Amp) | 2026-06-06 |
-| M5 No-screen + Transcript | | | | |
+| M5 No-screen + Transcript | #6 | ✅ | ✅ | 2026-06-06 |
 | M6 WhatsApp (optional) | | | | |
 | M7 Hardening (optional) | | | | |
 
