@@ -28,11 +28,33 @@ const modelDashboardElementSchema = z
     props: businessComponentPropSchemas.Dashboard,
     children: z
       .array(
-        z.enum(["primary_metric", "supporting_table", "answer_insight"]),
+        z.enum([
+          "primary_metric",
+          "primary_chart",
+          "supporting_table",
+          "answer_insight",
+        ]),
       )
-      .min(3)
-      .max(3),
+      .min(2)
+      .max(4),
     visible: z.boolean(),
+  })
+  .superRefine((element, ctx) => {
+    if (!element.children.includes("primary_metric")) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["children"],
+        message: "Dashboard children must include primary_metric.",
+      });
+    }
+
+    if (!element.children.includes("answer_insight")) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["children"],
+        message: "Dashboard children must include answer_insight.",
+      });
+    }
   })
   .strict();
 
@@ -54,6 +76,30 @@ const modelTableElementSchema = z
   })
   .strict();
 
+const modelChartPropsSchema = z
+  .object({
+    title: z.string().optional(),
+    xKey: z.literal("label"),
+    yKey: z.literal("value"),
+    data: z
+      .array(
+        z.object({
+          label: z.string(),
+          value: z.number(),
+        }),
+      )
+      .min(1),
+  });
+
+const modelChartElementSchema = z
+  .object({
+    type: z.enum(["BarChart", "LineChart"]),
+    props: modelChartPropsSchema,
+    children: z.array(z.string()).max(0),
+    visible: z.boolean(),
+  })
+  .strict();
+
 const modelInsightElementSchema = z
   .object({
     type: z.literal("Insight"),
@@ -66,12 +112,25 @@ const modelInsightElementSchema = z
 const modelUiSpecSchema = z
   .object({
     root: z.literal("dashboard"),
-    elements: z.object({
-      dashboard: modelDashboardElementSchema,
-      primary_metric: modelMetricElementSchema,
-      supporting_table: modelTableElementSchema,
-      answer_insight: modelInsightElementSchema,
-    }),
+    elements: z
+      .object({
+        dashboard: modelDashboardElementSchema,
+        primary_metric: modelMetricElementSchema,
+        primary_chart: modelChartElementSchema.optional(),
+        supporting_table: modelTableElementSchema.optional(),
+        answer_insight: modelInsightElementSchema,
+      })
+      .superRefine((elements, ctx) => {
+        for (const childId of elements.dashboard.children) {
+          if (!elements[childId]) {
+            ctx.addIssue({
+              code: "custom",
+              path: ["dashboard", "children"],
+              message: `${childId} must exist when listed in dashboard.children.`,
+            });
+          }
+        }
+      }),
   })
   .strict();
 
@@ -118,8 +177,10 @@ export function buildAnswerBusinessQueryPrompt({
     businessCatalogPrompt,
     "",
     "For this answer_business_query API call, return the final assembled json-render spec object in ui_spec. Do not return JSONL, JSON Patch operations, state patches, repeat fields, dynamic bindings, HTML, or JavaScript.",
-    'ui_spec must use root exactly "dashboard" and elements must include exactly these keys: dashboard, primary_metric, supporting_table, answer_insight.',
-    'Set dashboard.children to ["primary_metric","supporting_table","answer_insight"]. Set every other element children to [].',
+    'ui_spec must use root exactly "dashboard". elements must include dashboard, primary_metric, and answer_insight. It may include supporting_table and primary_chart when useful.',
+    'primary_chart may be either BarChart or LineChart. Include it when a category comparison or trend makes the answer clearer.',
+    'If primary_chart is included, use xKey exactly "label", yKey exactly "value", and data records like {"label":"Coffee","value":1200}. Do not leave chart data empty.',
+    "Set dashboard.children to the visible element ids in display order. Set every non-dashboard element children to [].",
     "",
     "Owner question:",
     input.query,

@@ -45,6 +45,7 @@ type RealtimeSessionResponse = {
 
 type VoiceSessionProps = {
   dataSessionId: string | null;
+  onBusinessAnswer: (output: AnswerBusinessQueryOutput) => void;
 };
 
 const statusText: Record<ConnectionStatus, string> = {
@@ -106,13 +107,17 @@ function parseToolQuery(rawArguments: string | undefined): string {
   }
 }
 
-export function VoiceSession({ dataSessionId }: VoiceSessionProps) {
+export function VoiceSession({
+  dataSessionId,
+  onBusinessAnswer,
+}: VoiceSessionProps) {
   const sessionRef = useRef<RealtimeSession | null>(null);
   const dataSessionIdRef = useRef<string | null>(dataSessionId);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [status, setStatus] = useState<ConnectionStatus>("idle");
   const [isMuted, setIsMuted] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
+  const [isTestingTool, setIsTestingTool] = useState(false);
   const [history, setHistory] = useState<RealtimeItem[]>([]);
   const [toolCalls, setToolCalls] = useState<ToolCallLog[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -154,6 +159,7 @@ export function VoiceSession({ dataSessionId }: VoiceSessionProps) {
             query,
             dataSessionIdRef.current,
           );
+          onBusinessAnswer(output);
           setToolCalls((current) => [
             {
               id: crypto.randomUUID(),
@@ -224,7 +230,7 @@ export function VoiceSession({ dataSessionId }: VoiceSessionProps) {
       );
       setStatus("error");
     }
-  }, [status]);
+  }, [onBusinessAnswer, status]);
 
   const toggleMute = useCallback(() => {
     const nextMuted = !isMuted;
@@ -232,24 +238,64 @@ export function VoiceSession({ dataSessionId }: VoiceSessionProps) {
     setIsMuted(nextMuted);
   }, [isMuted]);
 
-  const sendToolTest = useCallback(() => {
-    sessionRef.current?.sendMessage({
-      type: "message",
-      role: "user",
-      content: [
+  const sendToolTest = useCallback(async () => {
+    const query = "Show sales by product last month as a bar chart.";
+
+    if (status === "connected") {
+      sessionRef.current?.sendMessage({
+        type: "message",
+        role: "user",
+        content: [
+          {
+            type: "input_text",
+            text: query,
+          },
+        ],
+      });
+      return;
+    }
+
+    if (!dataSessionIdRef.current || isTestingTool) {
+      return;
+    }
+
+    setError(null);
+    setIsTestingTool(true);
+
+    try {
+      const output = await executeAnswerBusinessQuery(
+        query,
+        dataSessionIdRef.current,
+      );
+      onBusinessAnswer(output);
+      setToolCalls((current) => [
         {
-          type: "input_text",
-          text: "What does my revenue look like today?",
+          id: crypto.randomUUID(),
+          query,
+          summary: output.spoken_summary,
+          at: new Date().toLocaleTimeString(),
         },
-      ],
-    });
-  }, []);
+        ...current,
+      ]);
+    } catch (toolError) {
+      setError(
+        toolError instanceof Error
+          ? toolError.message
+          : "The business query tool failed.",
+      );
+    } finally {
+      setIsTestingTool(false);
+    }
+  }, [isTestingTool, onBusinessAnswer, status]);
+
+  const canSendToolTest =
+    !isTestingTool && (status === "connected" || Boolean(dataSessionId));
 
   const canConnect = status === "idle" || status === "error";
   const canDisconnect = status === "connected" || status === "connecting";
 
   return (
-    <section className="grid gap-5 lg:grid-cols-[1fr_1.2fr]">
+    <section className="grid gap-5">
       <audio ref={audioRef} className="hidden" />
       <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-3">
@@ -303,10 +349,10 @@ export function VoiceSession({ dataSessionId }: VoiceSessionProps) {
           <button
             type="button"
             onClick={sendToolTest}
-            disabled={status !== "connected"}
+            disabled={!canSendToolTest}
             className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-800 disabled:cursor-not-allowed disabled:text-slate-400"
           >
-            Test data question
+            {isTestingTool ? "Testing" : "Test data question"}
           </button>
         </div>
 
